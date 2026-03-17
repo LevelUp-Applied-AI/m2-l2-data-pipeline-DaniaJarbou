@@ -1,0 +1,10 @@
+{
+    "input_path": "data/sales_records.csv",
+    "output_dir": "output",
+    "cleaning": {
+        "fill_columns": ["quantity", "unit_price"],
+        "strategy": "median"
+    },
+    "group_by_col": "product_category",
+    "charts": ["revenue_by_category", "daily_trends"]
+}

@@ -1,0 +1,8 @@
+date,city,temperature,humidity
+2026-03-01,Amman,22,40
+2026-03-02,Amman,,45
+2026-03-01,Irbid,18,50
+2026-03-02,Irbid,22,45
+2026-03-03,Amman,,45
+2026-03-03,Irbid,18,50
+
