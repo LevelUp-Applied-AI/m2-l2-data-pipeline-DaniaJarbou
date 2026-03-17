@@ -49,15 +49,19 @@ def clean_data(df):
     Returns:
         pd.DataFrame: Cleaned DataFrame (do not modify the input in place).
     """
-    
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return df
     df_clean = df.copy()
-    quantity_median = df_clean['quantity'].median()
-    df_clean['quantity'] = df_clean['quantity'].fillna(quantity_median)
-    price_median = df_clean['unit_price'].median()
-    df_clean['unit_price'] = df_clean['unit_price'].fillna(price_median)
+    for col in ['quantity', 'unit_price']:
+        if df_clean[col].isnull().all():
+            df_clean[col] = 0
+        else:
+            df_clean[col] = df_clean[col].fillna(df_clean[col].median())
     df_clean['date'] = pd.to_datetime(df_clean['date'], errors='coerce')
     df_clean = df_clean.dropna(subset=['quantity', 'unit_price'], how='all')
     print(f"Cleaned data: {len(df_clean)} records")
+
     return df_clean
 
 
@@ -93,11 +97,21 @@ def generate_summary(df):
             - 'top_category': product category with highest total revenue
             - 'record_count': number of records in df
     """
+    if df.empty:
+        return {
+            'total_revenue': 0,
+            'avg_order_value': 0,
+            'top_category': "N/A",
+            'record_count': 0
+        }
     
     total_rev = df['revenue'].sum()
     avg_order = df['revenue'].mean()
-    top_cat = df.groupby('product_category')['revenue'].sum().idxmax()
     count = len(df)
+    if total_rev > 0:
+        top_cat = df.groupby('product_category')['revenue'].sum().idxmax()
+    else:
+        top_cat = "N/A"
     summary_dict = {
         'total_revenue': total_rev,
         'avg_order_value': avg_order,
