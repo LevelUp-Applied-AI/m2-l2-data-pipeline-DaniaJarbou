@@ -1,0 +1,10 @@
+{
+    "input_path": "data/weather.csv",
+    "output_dir": "output_weather",
+    "cleaning": {
+        "fill_columns": ["temperature"],
+        "strategy": "mean"
+    },
+    "group_by_col": "city",
+    "charts": []
+}

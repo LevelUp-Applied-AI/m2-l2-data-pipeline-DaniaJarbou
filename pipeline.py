@@ -10,142 +10,108 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-
-
-# ─── Configuration ────────────────────────────────────────────────────────────
-
-DATA_PATH = 'data/sales_records.csv'
-OUTPUT_DIR = 'output'
+import json
+import sys
 
 
 # ─── Pipeline Functions ───────────────────────────────────────────────────────
 
 def load_data(filepath):
-    """Load sales records from a CSV file.
+   
+    
+    df = pd.read_csv(filepath) 
+    print(f"Loaded {len(df)} records from {filepath}")
+    return df
 
-    Args:
-        filepath (str): Path to the CSV file.
+def clean_data(df, cleaning_config):
+   
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return df
+    df_clean = df.copy()
+    cols_to_fill = cleaning_config.get('fill_columns', [])
+    strategy = cleaning_config.get('strategy', 'median')
+    for col in cols_to_fill:
+        if col in df_clean.columns:
+            if df_clean[col].isnull().all():
+                fill_val = 0
+            elif strategy == 'mean':
+                fill_val = df_clean[col].mean()
+            else:
+                fill_val = df_clean[col].median()
+                
+            df_clean[col] = df_clean[col].fillna(fill_val)
 
-    Returns:
-        pd.DataFrame: Raw sales records DataFrame.
-    """
-    # TODO: Load the CSV using pd.read_csv(filepath)
-    # TODO: Print a progress message: f"Loaded {len(df)} records from {filepath}"
-    # TODO: Return the DataFrame
-    pass
-
-
-def clean_data(df):
-    """Handle missing values and fix data types.
-
-    - Fill missing 'quantity' values with the column median.
-    - Fill missing 'unit_price' values with the column median.
-    - Parse the 'date' column to datetime (use errors='coerce' to handle malformatted dates).
-    - Print a progress message showing the record count after cleaning.
-
-    Args:
-        df (pd.DataFrame): Raw DataFrame from load_data().
-
-    Returns:
-        pd.DataFrame: Cleaned DataFrame (do not modify the input in place).
-    """
-    # TODO: Start with df = df.copy() — never modify the input DataFrame in place
-    # TODO: Fill missing 'quantity' with df['quantity'].median()
-    # TODO: Fill missing 'unit_price' with df['unit_price'].median()
-    # TODO: Parse 'date' column: pd.to_datetime(df['date'], errors='coerce')
-    # TODO: Print progress and return cleaned DataFrame
-    pass
+    df_clean['date'] = pd.to_datetime(df_clean['date'], errors='coerce')
+    print(f"Cleaned data: {len(df_clean)} records")
+    return df_clean
 
 
 def add_features(df):
-    """Compute derived columns.
-
-    - Add 'revenue' column: quantity * unit_price.
-    - Add 'day_of_week' column: day name from the date column.
-
-    Args:
-        df (pd.DataFrame): Cleaned DataFrame from clean_data().
-
-    Returns:
-        pd.DataFrame: DataFrame with new columns added.
-    """
-    # TODO: Start with df = df.copy()
-    # TODO: df['revenue'] = df['quantity'] * df['unit_price']
-    # TODO: df['day_of_week'] = df['date'].dt.day_name()
-    #        (requires 'date' to be datetime type — must call after clean_data)
-    # TODO: Return the enriched DataFrame
-    pass
+   
+    df_enriched = df.copy()
+    if 'quantity' in df_enriched.columns and 'unit_price' in df_enriched.columns:
+        df_enriched['revenue'] = df_enriched['quantity'] * df_enriched['unit_price']
+    
+    if 'date' in df_enriched.columns:
+        df_enriched['day_of_week'] = df_enriched['date'].dt.day_name()
+    return df_enriched
 
 
-def generate_summary(df):
-    """Compute summary statistics.
-
-    Args:
-        df (pd.DataFrame): Enriched DataFrame from add_features().
-
-    Returns:
-        dict: Summary with keys:
-            - 'total_revenue': total revenue (sum)
-            - 'avg_order_value': average order value (mean)
-            - 'top_category': product category with highest total revenue
-            - 'record_count': number of records in df
-    """
-    # TODO: Compute top category: df.groupby('product_category')['revenue'].sum().idxmax()
-    # TODO: Return a dict with the four keys above
-    pass
-
-
-def create_visualizations(df, output_dir=OUTPUT_DIR):
-    """Create and save 3 charts as PNG files.
-
-    Charts to create:
-    1. Bar chart: total revenue by product category
-    2. Line chart: daily revenue trend (aggregate revenue by date)
-    3. Horizontal bar chart: average order value by payment method
-
-    Save each chart as a PNG using fig.savefig().
-    Do NOT use plt.show() — it blocks execution in pipeline scripts.
-    Close each figure with plt.close(fig) after saving.
-
-    Args:
-        df (pd.DataFrame): Enriched DataFrame from add_features().
-        output_dir (str): Directory to save PNG files (create if needed).
-    """
-    # TODO: Create the output directory: os.makedirs(output_dir, exist_ok=True)
-
-    # TODO: Chart 1 — Bar chart: total revenue by product category
-    #   - Group by 'product_category', sum 'revenue'
-    #   - fig, ax = plt.subplots(figsize=(10, 6))
-    #   - ax.bar(categories, values) or use ax.barh() for horizontal
-    #   - Set title, labels
-    #   - fig.savefig(f'{output_dir}/revenue_by_category.png', dpi=150, bbox_inches='tight')
-    #   - plt.close(fig)
-
-    # TODO: Chart 2 — Line chart: daily revenue trend
-    #   - Group by 'date', sum 'revenue' — sort by date
-    #   - ax.plot(dates, revenues)
-    #   - fig.savefig(f'{output_dir}/daily_revenue_trend.png', ...)
-    #   - plt.close(fig)
-
-    # TODO: Chart 3 — Horizontal bar chart: avg order value by payment method
-    #   - Group by 'payment_method', mean 'revenue'
-    #   - ax.barh(methods, avg_values)
-    #   - fig.savefig(f'{output_dir}/avg_order_by_payment.png', ...)
-    #   - plt.close(fig)
-
-    pass
+def generate_summary(df, group_by_col):
+   
+    if df.empty:
+       return {'total_revenue': 0, 'avg_order_value': 0, 'top_category': "N/A", 'record_count': 0}
+    
+    total_rev = df['revenue'].sum() if 'revenue' in df.columns else 0
+    avg_order = df['revenue'].mean() if 'revenue' in df.columns else 0
+    count = len(df)
+    if total_rev > 0 and group_by_col in df.columns:
+        top_val = df.groupby(group_by_col)['revenue'].sum().idxmax()
+    else:
+        top_val = "N/A"
+    summary_dict = {
+        'total_revenue': total_rev,
+        'avg_order_value': avg_order,
+        'top_category': top_val,
+        'record_count': count
+    }
+    return summary_dict
 
 
-def main():
-    """Run the full data pipeline end-to-end."""
-    # TODO: Call load_data(DATA_PATH)
-    # TODO: Call clean_data(df)
-    # TODO: Call add_features(df)
-    # TODO: Call generate_summary(df) and print the results
-    # TODO: Call create_visualizations(df)
-    # TODO: Print "Pipeline complete."
-    pass
+def create_visualizations(df, output_dir, charts_to_make):
+    
+    os.makedirs(output_dir, exist_ok=True)
+    if "revenue_by_category" in charts_to_make and 'product_category' in df.columns:
+        cat_data = df.groupby('product_category')['revenue'].sum().sort_values(ascending=False)
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.bar(cat_data.index, cat_data.values, color='skyblue')
+        ax.set_title('Total Revenue by Product Category')
+        fig.savefig(f'{output_dir}/revenue_by_category.png', dpi=150, bbox_inches='tight')
+        plt.close(fig)
+
+    print(f"Visualizations completed in {output_dir}")
+  
+
+
+def main(config_path="config_sales.json"):
+   if not os.path.exists(config_path):
+        print(f"Error: Config file '{config_path}' not found.")
+        return
+   with open(config_path, 'r') as f:
+        config = json.load(f)
+   df = load_data(config['input_path'])
+   df = clean_data(df, config['cleaning'])
+   df = add_features(df)
+   summary = generate_summary(df, config['group_by_col'])
+   print(f"Summary for {config['input_path']}:", summary)
+   create_visualizations(df, config['output_dir'], config.get('charts', []))
+   if not os.path.exists(config['output_dir']):
+        os.makedirs(config['output_dir'])
+
+    
 
 
 if __name__ == "__main__":
-    main()
+     path = sys.argv[1] if len(sys.argv) > 1 else "config_sales.json"
+     main(path)
